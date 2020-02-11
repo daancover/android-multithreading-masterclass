@@ -1,18 +1,20 @@
 package com.techyourchance.multithreading.exercises.exercise3;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.techyourchance.multithreading.R;
-import com.techyourchance.multithreading.common.BaseFragment;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+
+import com.techyourchance.multithreading.R;
+import com.techyourchance.multithreading.common.BaseFragment;
 
 public class Exercise3Fragment extends BaseFragment {
 
@@ -25,6 +27,8 @@ public class Exercise3Fragment extends BaseFragment {
     private Button mBtnCountSeconds;
     private TextView mTxtCount;
 
+    private Handler uiThread = new Handler(Looper.getMainLooper());
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -33,12 +37,7 @@ public class Exercise3Fragment extends BaseFragment {
         mBtnCountSeconds = view.findViewById(R.id.btn_count_seconds);
         mTxtCount = view.findViewById(R.id.txt_count);
 
-        mBtnCountSeconds.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                countIterations();
-            }
-        });
+        mBtnCountSeconds.setOnClickListener(v -> countIterations());
 
         return view;
     }
@@ -49,11 +48,25 @@ public class Exercise3Fragment extends BaseFragment {
     }
 
     private void countIterations() {
-        /*
-        1. Disable button to prevent multiple clicks
-        2. Start counting on background thread using loop and Thread.sleep()
-        3. Show count in TextView
-        4. When count completes, show "done" in TextView and enable the button
-         */
+        mBtnCountSeconds.setEnabled(false);
+
+        new Thread(() -> {
+            for (int i = 0; i < SECONDS_TO_COUNT; i++) {
+                final int iFinal = i;
+
+                uiThread.post(() -> mTxtCount.setText(String.valueOf(iFinal)));
+
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
+
+            uiThread.post(() -> {
+                mTxtCount.setText("Done!");
+                mBtnCountSeconds.setEnabled(true);
+            });
+        }).start();
     }
 }
