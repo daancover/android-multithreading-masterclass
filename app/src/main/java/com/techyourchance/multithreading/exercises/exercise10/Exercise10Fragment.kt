@@ -9,15 +9,18 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
-
-import com.techyourchance.multithreading.R
-import com.techyourchance.multithreading.common.BaseFragment
-
-import java.math.BigInteger
 import androidx.fragment.app.Fragment
 import com.techyourchance.multithreading.DefaultConfiguration
+import com.techyourchance.multithreading.R
+import com.techyourchance.multithreading.common.BaseFragment
+import com.techyourchance.multithreading.solutions.exercise10.SolutionExercise10Fragment
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import java.math.BigInteger
 
-class Exercise10Fragment : BaseFragment(), ComputeFactorialUseCase.Listener {
+class SolutionExercise10Fragment : BaseFragment() {
 
     private lateinit var edtArgument: EditText
     private lateinit var edtTimeout: EditText
@@ -25,6 +28,8 @@ class Exercise10Fragment : BaseFragment(), ComputeFactorialUseCase.Listener {
     private lateinit var txtResult: TextView
 
     private lateinit var computeFactorialUseCase: ComputeFactorialUseCase
+
+    private var job: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,7 +46,7 @@ class Exercise10Fragment : BaseFragment(), ComputeFactorialUseCase.Listener {
             txtResult = findViewById(R.id.txt_result)
         }
 
-        btnStartWork.setOnClickListener { _ ->
+        btnStartWork.setOnClickListener {
             if (edtArgument.text.toString().isEmpty()) {
                 return@setOnClickListener
             }
@@ -55,43 +60,37 @@ class Exercise10Fragment : BaseFragment(), ComputeFactorialUseCase.Listener {
 
             val argument = Integer.valueOf(edtArgument.text.toString())
 
-            computeFactorialUseCase.computeFactorialAndNotify(argument, getTimeout())
+            job = CoroutineScope(Dispatchers.Main).launch {
+                when (val result = computeFactorialUseCase.computeFactorial(argument, getTimeout())) {
+                    is ComputeFactorialUseCase.Result.Success -> onFactorialComputed(result.result)
+                    is ComputeFactorialUseCase.Result.Timeout -> onFactorialComputationTimedOut()
+                }
+            }
         }
 
         return view
     }
 
-    override fun onStart() {
-        super.onStart()
-        computeFactorialUseCase.registerListener(this)
-    }
-
     override fun onStop() {
         super.onStop()
-        computeFactorialUseCase.unregisterListener(this)
-
+        job?.apply { cancel() }
     }
 
     override fun getScreenTitle(): String {
         return "Exercise 10"
     }
 
-    override fun onFactorialComputed(result: BigInteger) {
+    fun onFactorialComputed(result: BigInteger) {
         txtResult.text = result.toString()
         btnStartWork.isEnabled = true
     }
 
-    override fun onFactorialComputationTimedOut() {
+    fun onFactorialComputationTimedOut() {
         txtResult.text = "Computation timed out"
         btnStartWork.isEnabled = true
     }
 
-    override fun onFactorialComputationAborted() {
-        txtResult.text = "Computation aborted"
-        btnStartWork.isEnabled = true
-    }
-
-    private fun getTimeout() : Int {
+    private fun getTimeout(): Int {
         var timeout: Int
         if (edtTimeout.text.toString().isEmpty()) {
             timeout = MAX_TIMEOUT_MS
@@ -103,11 +102,12 @@ class Exercise10Fragment : BaseFragment(), ComputeFactorialUseCase.Listener {
         }
         return timeout
     }
-    
+
     companion object {
         fun newInstance(): Fragment {
-            return Exercise10Fragment()
+            return SolutionExercise10Fragment()
         }
+
         private const val MAX_TIMEOUT_MS = DefaultConfiguration.DEFAULT_FACTORIAL_TIMEOUT_MS
     }
 }
